@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}} — Estudos Claude</title>
+  <meta name="description" content="{{SUBTITLE}}">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <span class="tag">{{TAG}}</span>
+    <h1>{{TITLE_PART_1}} <span>{{TITLE_PART_2}}</span></h1>
+    <p class="subtitle">{{SUBTITLE}}</p>
+    <div class="meta-row">
+      <span>{{READ_TIME}} min de leitura</span>
+      <span class="dot"></span>
+      <span>{{CONCEPT_COUNT}} conceitos</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 1 ================= -->
+  <div class="section-label">
+    <div class="icon-box">{{SECTION_1_ICON}}</div>
+    <div>
+      <h2>{{SECTION_1_TITLE}}</h2>
+      <div class="subtitle">{{SECTION_1_SUBTITLE}}</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">{{CARD_ICON}}</span>
+      <h3>{{CARD_TITLE}}</h3>
+      <ul>
+        <li>{{BULLET_1}}</li>
+        <li>{{BULLET_2}}</li>
+        <li>{{BULLET_3}}</li>
+      </ul>
+    </div>
+
+    <div class="card callout">
+      <span class="icon">💡</span>
+      <h3>{{CALLOUT_TITLE}}</h3>
+      <p>{{CALLOUT_TEXT}}</p>
+    </div>
+  </div>
+
+  <!-- Bloco de referência rápida para revisão pré-prova -->
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>{{COL_1}}</th>
+        <th>{{COL_2}}</th>
+        <th>{{COL_3}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ROW_1_COL_1}}</td>
+        <td>{{ROW_1_COL_2}}</td>
+        <td>{{ROW_1_COL_3}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 2 ================= -->
+  <div class="section-label">
+    <div class="icon-box">{{SECTION_2_ICON}}</div>
+    <div>
+      <h2>{{SECTION_2_TITLE}}</h2>
+      <div class="subtitle">{{SECTION_2_SUBTITLE}}</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card code-card">
+      <div class="code-block">{{CODE_EXAMPLE}}</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Post de estudo gerado com a skill <strong>claude-study-post</strong>.</p>
+    <p><a href="../index.html">← Voltar para todos os posts</a></p>
+  </div>
+
+</body>
+</html>

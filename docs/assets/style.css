@@ -188,6 +188,12 @@ a {
   color: #fff;
 }
 
+.card.dark-card a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .card.callout {
   border-left: 4px solid var(--pink);
   background: #fff5fa;
