@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Como tirei 940 na Claude Architect Foundations — Estudos Claude</title>
+  <meta name="description" content="O que funcionou comigo para passar na certificação Claude Certified Architect Foundations: método de estudo, macetes da banca e a teoria que mais cai.">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <span class="tag">Relato de estudo</span>
+    <h1>Como tirei 940 na <span>Claude Architect Foundations</span></h1>
+    <p class="subtitle">
+      O que funcionou comigo para a prova Claude Certified Architect – Foundations (CCA-F), em
+      julho de 2026. Se te ajudar a chegar mais tranquilo na prova, já valeu.
+    </p>
+    <div class="meta-row">
+      <span>9 min de leitura</span>
+      <span class="dot"></span>
+      <span>~30 conceitos</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 1 — COMO ESTUDEI ================= -->
+  <div class="section-label">
+    <div class="icon-box">🧭</div>
+    <div>
+      <h2>Como eu estudei</h2>
+      <div class="subtitle">A jornada, do diagnóstico à consolidação</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">🔎</span>
+      <h3>Primeiro entendi o terreno</h3>
+      <p>
+        Antes de estudar, li depoimentos no Reddit de quem já tinha feito a prova para calibrar o nível de
+        exigência e descobrir plataformas boas. Depois fiz um simulado curto (28 questões) só para
+        me situar: onde eu estava e qual a profundidade cobrada.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🧩</span>
+      <h3>Separei em duas frentes</h3>
+      <p>
+        A prova tem uma parte <strong>agêntica</strong>, que permeia tudo, e uma parte
+        <strong>específica do Claude</strong> (CLI, biblioteca, configurações). Eu tinha boa base
+        na parte agêntica — precisava era de refinamento técnico e velocidade. Config era meu ponto
+        fraco de longe, e ali eu precisava da teoria mesmo.
+      </p>
+    </div>
+
+    <div class="card callout">
+      <span class="icon">💡</span>
+      <h3>Feeling ajuda, mas tem pega-ratão</h3>
+      <p>
+        Muita coisa dá para responder com o que você faria no trabalho: a opção mais confiável e
+        que dá menos trabalho. Mas o Claude tem estrutura própria, e eu errei várias
+        <em>confiantemente</em>. Exemplo clássico: um workflow gigante estourando o limite de budget — a
+        resposta não é trocar de modelo nem mexer nesse limite. Na prova, a resposta é
+        <strong>escalar para um humano</strong>.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">📝</span>
+      <h3>Anotei todo erro e adaptei o foco</h3>
+      <p>
+        Peguei os simulados e anotei, em cada questão errada, o que eu achava que era, o que
+        entendi errado e o que eu não sabia. Essa lista virou meu plano de estudos vivo: eu
+        atualizava sempre para atacar os calcanhares de Aquiles. De config eu fiz tanto exercício que cheguei
+        a decorar, então parti para os demais tópicos.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">📚</span>
+      <h3>Consolidação por último</h3>
+      <p>
+        Só depois de dominar o formato das questões fui para a teoria pura. Pode parecer o
+        contrário do esperado, mas, para mim, compreender primeiro <em>como</em> a banca pergunta
+        me permitiu responder mais rápido o que eu já sabia e sobrar tempo para a revisão no final
+        da prova, matando as questões mais difíceis. Outro motivo para deixar a teoria por último
+        foi justamente refinar o conteúdo para responder essas questões.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🗂️</span>
+      <h3>Uma fonte única de verdade</h3>
+      <p>
+        Juntei todas as fontes que considerei importantes e fui desmembrando em anotações numa
+        <a href="https://hong-chu.github.io/llm-wiki-starter/">llm-wiki</a>. Quase não fiz caderno
+        à mão — a única coisa que anotei num quadro branco foi <strong>grep vs glob</strong>.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 2 — O MÉTODO ================= -->
+  <div class="section-label">
+    <div class="icon-box">⚙️</div>
+    <div>
+      <h2>O método</h2>
+      <div class="subtitle">A rotina que usei para estudar e simular</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">🎯</span>
+      <h3>Estudos</h3>
+      <ul>
+        <li>Fazia questões que tinham <strong>explicação do resultado na hora</strong>.</li>
+        <li>Mantinha os estudos centralizados no Claude Certification Guide.</li>
+        <li>Estudava o conceito que não sabia e lia a explicação detalhada.</li>
+        <li>Entendia <strong>por que</strong> as outras alternativas estavam erradas.</li>
+        <li>Quando errava, comparava o que eu achava com o que era de verdade.</li>
+        <li>Quando acertava na dúvida, pesquisava a dúvida mesmo assim.</li>
+        <li>Usava o Claude para destrinchar as questões erradas.</li>
+        <li>Fazia muitos drills no site.</li>
+        <li>Atualizava o foco dos estudos sempre após os simulados.</li>
+        <li>Estudava a teoria por ordem de prioridade (o que eu sabia menos).</li>
+        <li>Implementava de verdade: exercícios práticos do site (ex.: skills no <code>.claude/</code>).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">⏱️</span>
+      <h3>Simulados</h3>
+      <ul>
+        <li>Fazia <strong>cronometrado, direto e sem ver a resposta</strong> — é assim na prova.</li>
+        <li>São 60 questões em 2 horas e cansa bastante.</li>
+        <li>Aprendi que ficar muito tempo numa questão só não dá.</li>
+        <li>Só lia o cenário da questão quando travava e precisava de mais contexto para responder.</li>
+        <li>Aprendi que responder rápido me permitiria ter tempo para revisar.</li>
+        <li>Revisar foi o que me permitiu acertar as mais difíceis.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">1️⃣</span>
+      <h3>Primeira fase — praticar e revisar</h3>
+      <p>
+        Aqui a nota do simulado quase não subia — fui de <strong>788 para 798</strong>, por
+        exemplo. E tudo bem: o objetivo desta fase é pegar <strong>ritmo</strong>, cansar menos
+        lendo e, principalmente, <strong>estudar o que eu ia errando</strong>. A cada simulado eu
+        revia questão por questão, anotava o raciocínio e atualizava o foco dos estudos. Para mim,
+        a revisão faz parte desta fase: é estudar <em>depois</em> da prática, atacando primeiro os
+        tópicos onde eu mais errava.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">2️⃣</span>
+      <h3>Segunda fase — refinar com teoria</h3>
+      <p>
+        Quando eu já terminava rápido e "batia o olho e sabia", o que sobrava eram as questões
+        difíceis, decididas por <strong>teoria pura</strong> — o <em>creme de la creme</em>. Aí
+        virei a chave para estudar a teoria a fundo e refinar essas questões. Nem sempre dava para
+        ler tudo, e tudo bem: eu priorizava os tópicos mais difíceis.
+      </p>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card callout">
+      <span class="icon">✍️</span>
+      <h3>Como era uma anotação de revisão</h3>
+      <p>
+        A revisão só funciona se for específica. Um exemplo real do meu caderno:
+        <em>"q42 — fiquei na dúvida. Achei que precisaria de todo tipo de análise, por isso o free
+        text. Lição: evitar free text quando preciso de consistência. Transformar a tool que recebe
+        free text em 3 tools de análise específicas, com outputs bem definidos."</em>
+        Essa lista de erros + motivos era o que alimentava o próximo ciclo de estudo.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 3 — MACETES DA BANCA ================= -->
+  <div class="section-label">
+    <div class="icon-box">🎩</div>
+    <div>
+      <h2>Pulo do Gato da Banca</h2>
+      <div class="subtitle">Padrões que percebi respondendo muita questão</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">🧵</span>
+      <h3>Subagentes</h3>
+      <ul>
+        <li>Subagente <strong>sempre começa do zero</strong>: nunca herda contexto.</li>
+        <li>Subagente <strong>não fala com subagente</strong>.</li>
+        <li><strong>Só o coordenador</strong> fala com subagentes.</li>
+        <li>O coordenador manda <strong>contexto + objetivo</strong>, não instruções.</li>
+        <li>O subagente resolve tudo abaixo dele e devolve ao coordenador um relatório do que fez.</li>
+        <li>Um agente só delega a um subagente se tiver <code>allowTools: Agent</code> (antigo <code>Task</code>).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">🪝</span>
+      <h3>Quando usar Hooks</h3>
+      <ul>
+        <li>Prompt não acerta 100% das vezes → tarefa determinística vai em <strong>Hook</strong>.</li>
+        <li>Normalizar o resultado de uma tool → <strong>Hook PostTool</strong>.</li>
+        <li>Validar regra de negócio antes da tool → <strong>Hook PreTool</strong>.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">🛠️</span>
+      <h3>Tools e prompts</h3>
+      <ul>
+        <li>Tool com <strong>erros descritivos</strong> e sem error handling interno — o agente
+          decide se e como chama de novo, com todo o contexto.</li>
+        <li>Instrução vaga → <strong>explicite o critério</strong>.</li>
+        <li>Inconsistência → <strong>2–4 exemplos few-shot</strong> com variabilidade.</li>
+        <li>Modelo genérico demais (context degradation) → <strong>sumarização + novo chat</strong> ou <strong>explorar com subagente</strong>.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">⚡</span>
+      <h3>Custo e performance</h3>
+      <ul>
+        <li>Para usar cache: <strong>system prompt no início</strong>, texto variável no fim.</li>
+        <li>Pode esperar? → <strong>Batch da Messages API</strong>.</li>
+        <li>No exame chamam de <code>Task</code>, alias de <code>Agent</code>.</li>
+      </ul>
+    </div>
+
+    <div class="card dark-card">
+      <span class="icon">🧘</span>
+      <h3>A regra de ouro</h3>
+      <p>
+        Muita vez o que <em>parece</em> mais certo é over-engineering. Simplifique até achar o nível
+        correto da correção — faça como você faria no trabalho: a solução mais confiável e que dá
+        menos trabalho. E leia o cenário completo só quando travar e precisar de mais contexto.
+      </p>
+    </div>
+
+    <div class="card callout">
+      <span class="icon">🎲</span>
+      <h3>Na dúvida, para onde chutar</h3>
+      <p>
+        Quando empacar entre alternativas, o palpite costuma apontar para: <strong>few-shot</strong>,
+        <strong>melhorar a descrição da tool</strong> ou <strong>usar um schema JSON</strong> na
+        resposta. E, no Claude Code, execução geralmente falha por <strong>falta de
+        planejamento</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Quick reference: o que quase nunca é a resposta -->
+  <div class="card-grid cols-1">
+    <div class="card">
+      <span class="icon">🚫</span>
+      <h3>Referência rápida — o que eu riscaria fora</h3>
+      <p>Alternativas que soam plausíveis mas quase nunca são a resposta certa:</p>
+      <table class="compare-table" style="margin-top:14px;">
+        <thead>
+          <tr>
+            <th>Riscar fora</th>
+            <th>Por quê</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Reprocessar tudo / rodar de novo</td><td>Não ataca a causa e custa caro.</td></tr>
+          <tr><td>Tirar ou aumentar o limite de tokens</td><td>O problema volta. Divida o doc para conquistar.</td></tr>
+          <tr><td>Pedir para o Claude "se esforçar mais"</td><td>Não é assim que se resolve.</td></tr>
+          <tr><td>Trocar por um modelo mais caro</td><td>Pode até perder qualidade.</td></tr>
+          <tr><td>Aumentar/diminuir a temperatura</td><td>Curiosamente, nunca é a resposta.</td></tr>
+          <tr><td>Chamar várias vezes e tirar média</td><td>Gambiarra cara e instável.</td></tr>
+          <tr><td>Dar mais de 5 tools para um agente</td><td>Excesso de opções degrada a escolha.</td></tr>
+          <tr><td>Mandar tudo para revisão humana</td><td>Escale só o que realmente precisa.</td></tr>
+          <tr><td>Bloquear todo o pipeline num erro</td><td>Em vez disso, propague o erro.</td></tr>
+          <tr><td>Empilhar um modelo novo no pipeline</td><td>Validação/classificação a mais raramente ajuda.</td></tr>
+          <tr><td>Retornar vazio ou falhar em silêncio</td><td>Erro silencioso é armadilha.</td></tr>
+          <tr><td>Retry automático dentro da tool</td><td>Quem decide re-chamar é o agente.</td></tr>
+          <tr><td>Rodar <code>/compact</code> para contexto degradado</td><td>Não é a cura para degradação.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SEÇÃO 4 — TEORIA ESSENCIAL ================= -->
+  <div class="section-label">
+    <div class="icon-box">📖</div>
+    <div>
+      <h2>Teoria essencial</h2>
+      <div class="subtitle">Hierarquia de configuração, inicialização e conceitos que precisam estar na ponta da língua</div>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Nível</th>
+        <th>Alcance</th>
+        <th>Quando é lido</th>
+        <th>Caminho</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Sistema</td><td>Sua máquina</td><td>Sempre</td><td><code>~/.claude/</code></td></tr>
+      <tr><td>Projeto</td><td>Quem clonar o repo</td><td>Ao abrir o projeto</td><td><code>.claude/</code></td></tr>
+      <tr><td>Diretório</td><td>Instruções da pasta</td><td>Ao explorar a pasta</td><td><code>src/CLAUDE.local.md</code></td></tr>
+      <tr><td>Rules</td><td>Instruções com path no YAML frontmatter</td><td>Match no glob (<code>*.md</code>, <code>tests/</code>)</td><td><code>.claude/</code></td></tr>
+      <tr><td>Skills</td><td>Instruções especiais (têm fork de contexto)</td><td>Se relevante no chat</td><td><code>.claude/skills/analysis/SKILL.md</code></td></tr>
+      <tr><td>Comandos</td><td>Alias de skill</td><td>Se relevante no chat</td><td><code>.claude/commands/analysis.md</code></td></tr>
+    </tbody>
+  </table>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Onde</th>
+        <th>Versionado?</th>
+        <th>Caminho</th>
+        <th>Para quê</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Pessoal</td><td>Não versionado</td><td><code>~/.claude/CLAUDE.md</code></td><td>Regras globais para todos os seus projetos</td></tr>
+      <tr><td>Time</td><td>Versionado</td><td><code>CLAUDE.md</code> e <code>.claude/</code></td><td>O Claude do time</td></tr>
+      <tr><td>Pessoal</td><td>Não versionado</td><td><code>CLAUDE.local.md</code></td><td>Preferências pessoais para o diretório</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card-grid cols-2">
+    <div class="card code-card">
+      <div class="code-block"># Ordem de inicialização (Claude Code CLI)
+
+1. ~/.claude/CLAUDE.md      # Usuário
+2. ./CLAUDE.md             # Raiz do projeto
+3. ./CLAUDE.local.md       # Pessoal do diretório
+
+# Durante a execução:
+#  - Rules   (path glob)
+#  - Skills  (o Claude identifica a necessidade)
+#  - subdiretórios:
+4. src/CLAUDE.md
+5. src/CLAUDE.local.md</div>
+    </div>
+
+    <div class="card">
+      <span class="icon">🧠</span>
+      <h3>Conceitos para dominar</h3>
+      <ul>
+        <li><code>Read</code>, <code>Grep</code>, <code>Glob</code>, <code>Write</code>, <code>Edit</code></li>
+        <li>Fork de contexto na Skill</li>
+        <li>Context degradation &amp; lost in the middle</li>
+        <li>Few-shot &amp; YAML frontmatter</li>
+        <li>Failure information flow</li>
+        <li>Amostra estratificada de resultados high-confidence</li>
+        <li>Claim-Source Mappings</li>
+        <li>git worktree &amp; scratchpad files</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= FECHAMENTO ================= -->
+  <div class="section-label">
+    <div class="icon-box">🌱</div>
+    <div>
+      <h2>Para fechar</h2>
+      <div class="subtitle">O que, no fim, fez diferença</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card">
+      <p>
+        Se eu tivesse que resumir: entender o padrão da banca me deixou mais rápida, e essa
+        velocidade me deu cerca de 30 minutos de revisão no fim da prova. Foi revisando com calma as
+        questões mais difíceis que passei tranquilo.
+      </p>
+      <p style="margin-top:14px;">
+        Só com teoria, eu não teria tempo na prova para revisar nem ler com calma. Só com questões, eu não
+        daria conta das mais difíceis e correria mais risco de passar raspando — ou não passar. Por
+        isso primeiro criei esse tempo de sobra e, depois, refinei o conteúdo para usá-lo bem. Na
+        prova, revisei mais de 15 questões que achei super difíceis e cheguei a trocar algumas respostas marcadas.
+      </p>
+      <p style="margin-top:14px;">
+        Nada disso é regra — é só o que encaixou comigo. Se você adaptar uma ou duas dessas ideias e
+        chegar mais confiante no dia da prova, o objetivo deste post está cumprido. Boa prova, e
+        torço para dar certo com você. 💜
+      </p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Post de estudo gerado com a skill <strong>claude-study-post</strong>. Qualquer erro, me avise!</p>
+    <p><a href="../index.html">← Voltar para todos os posts</a></p>
+  </div>
+
+</body>
+</html>
