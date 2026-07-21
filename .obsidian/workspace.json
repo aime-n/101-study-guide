@@ -241,6 +241,7 @@
   },
   "active": "1b1eacb938ef138a",
   "lastOpenFiles": [
+    "docs/index.html",
     "study-data/create_toggl_chart.py",
     "study-data/TogglTrack_Report_Detailed_report_(from_13_07_2026_to_20_07_2026)-2.csv",
     "study-data/toggl_chart.png",
@@ -254,7 +255,6 @@
     "claude-na-pratica/src/api/CLAUDE.md",
     "claude-na-pratica/src/api",
     "claude-na-pratica/src",
-    "claude-na-pratica/scripts/cicd_claude.sh",
     "src/api/CLAUDE.md",
     "claude-na-pratica/api/CLAUDE.md",
     "como-estudei.md",
