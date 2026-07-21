@@ -1,0 +1,42 @@
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  # This triggers the workflow on every push to the main branch [citation:1][citation:4][citation:9]
+  push:
+    branches: ["main"]
+
+  # This allows you to run the workflow manually from the Actions tab for testing [citation:1][citation:4]
+  workflow_dispatch:
+
+# Sets the permissions of the GITHUB_TOKEN to allow deployment to Pages [citation:1][citation:4]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued [citation:1][citation:4]
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # If your site is in a specific folder, set that path here (e.g., './docs' or './dist') [citation:1][citation:4]
+          # If your site is at the root of your repository, use the '.' as shown below [citation:4]
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
