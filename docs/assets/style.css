@@ -150,12 +150,16 @@ a {
 
 .card .icon {
   font-size: 22px;
-  margin-bottom: 10px;
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  margin-bottom: 8px;
 }
 
 .card h3 {
   font-size: 17px;
+  display: inline-block;
+  vertical-align: middle;
   margin-bottom: 8px;
 }
 
