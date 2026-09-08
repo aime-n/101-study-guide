@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Errores estructurados en tools de agente — Estudos Claude</title>
+  <meta name="description" content="Las cuatro categorías de error, cuándo un error es retryable, por qué cero resultados no es un fallo y cómo propagar errores entre subagentes — con TL;DR para repaso rápido.">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <span class="tag">Tool Design &amp; MCP</span>
+    <h1>Errores estructurados en <span>tools de agente</span></h1>
+    <p class="subtitle">
+      Una tool que falla mal le enseña al agente a rendirse pronto — o a insistir para siempre.
+      Este post es la referencia rápida de cómo devolver un error a un modelo: categorías,
+      reintentos, propagación entre subagentes y las trampas más comunes.
+    </p>
+    <div class="meta-row">
+      <span>13 min de lectura</span>
+      <span class="dot"></span>
+      <span>~22 conceptos</span>
+    </div>
+    <p class="lang-switch">🌐 <a href="2026-09-08-erros-estruturados-em-tools.html">Ler em português</a></p>
+  </div>
+
+
+  <!-- ================= INTRODUCCIÓN ================= -->
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    En desarrollo, un agente llamando a una tool parece magia: el modelo elige la función correcta,
+    arma los argumentos correctos y devuelve la respuesta correcta. En producción, la misma escena
+    tiene un detalle que nadie ensayó — la tool falla. La API del otro lado se cae, el token expira,
+    el registro simplemente no está. Y la pregunta deja de ser "¿el agente sabe llamar a la tool?"
+    para volverse otra, bastante menos cómoda: <strong>¿el agente sabe qué pasó cuando no
+    funcionó?</strong>
+  </p>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Casi todo manejo de errores en tools nace torcido por uno de dos motivos opuestos. O la tool
+    <strong>subestima al agente</strong> y lo resuelve todo sola — se traga la excepción, reintenta
+    por su cuenta, devuelve lista vacía como si nada — y el modelo, que decidiría mejor con la
+    información en la mano, nunca se entera de que hubo una falla. O la tool hace lo contrario y
+    <strong>vuelca lo que sobró</strong>: un <em>traceback</em>, un <code>Error: 403</code>, un
+    string cualquiera — transfiriéndole al modelo una decisión que él no tiene cómo tomar.
+    ¿Reintentar? ¿Cambiar el argumento? ¿Rendirse? La primera tool no confía en el agente; la
+    segunda confía de más.
+  </p>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Las dos se equivocan en el mismo punto: tratan la respuesta de fallo como subproducto, cuando es
+    <strong>interfaz</strong>. Un LLM no abre el debugger — lee tokens y elige el próximo paso. Si
+    lo único que vuelve es "dio error", el próximo paso es adivinar. Este post trata del contrato
+    que convierte esa adivinanza en decisión: qué categorías de error existen, cuándo reintentar
+    tiene sentido, por qué cero resultados no es un fallo, y qué sube (y qué no sube) cuando el
+    error atraviesa subagentes.
+  </p>
+
+
+  <!-- ================= EL ERROR QUE NADIE VE ================= -->
+  <div class="section-label">
+    <div class="icon-box">🎯</div>
+    <div>
+      <h2>El error que nadie ve</h2>
+      <div class="subtitle">Una tool bienintencionada, cuatro formas de fallar</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    <strong>Caso ejemplar.</strong> Supongamos una tool que consulta pedidos por cliente. Alguien
+    envolvió la llamada en un <code>try/except</code> y devolvió lista vacía cuando daba error — una
+    decisión defensiva, tomada con buena intención: mejor que la tool responda algo a que tumbe el
+    flujo entero. Meses después, supongamos que la API del otro lado empieza a limitar peticiones.
+    La tool pasa a devolver esto:
+  </p>
+
+  <div class="card-grid cols-1">
+    <div class="card code-card">
+      <div class="code-block">{
+  "isError": false,
+  "content": [ { "type": "text", "text": "[]" } ]
+}</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    No hay error. No hay alerta. El agente lee "cero pedidos", concluye que el cliente no tiene
+    ninguno y le responde al usuario con la confianza de quien consultó la fuente. El panel marca
+    100% de éxito. Nadie se da cuenta — no hay nada de qué darse cuenta.
+  </p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">💸</span>
+      <h3>Respuesta equivocada que parece correcta</h3>
+      <p>
+        Es la más cara porque no deja rastro. La tool no falló, el agente no erró el razonamiento —
+        quien mintió fue el contrato. Se tomó una decisión sobre datos que nunca llegaron, y no
+        existe métrica que lo delate después.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🔁</span>
+      <h3>Bucle infinito</h3>
+      <p>
+        El reflejo opuesto: el error sube, pero como string opaco. El agente no distingue
+        transitorio de permanente, así que reintenta lo que nunca va a funcionar — y se rinde con lo
+        que habría salido bien al segundo intento.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🔥</span>
+      <h3>Tokens quemados</h3>
+      <p>
+        Cada reintento reinyecta la llamada fallida y el mensaje de error en el contexto. El coste
+        de un intento condenado no es solo la latencia: el contexto crece y <strong>todos</strong>
+        los turnos siguientes salen más caros.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🩸</span>
+      <h3>Fuga</h3>
+      <p>
+        El tercer reflejo es volcar la excepción cruda. Suben con ella la ruta de archivo del
+        servidor, el host interno y la query con el filtro. Eso entra en el contexto del modelo y
+        puede salir en la respuesta al usuario — o quedarse en el log de conversaciones.
+      </p>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Tragarse el error, reintentar a ciegas y volcar el <em>traceback</em> parecen tres problemas
+    distintos. Son el mismo: ninguna de las tres respuestas le dice al agente <strong>qué hacer
+    ahora</strong>.
+  </p>
+
+  <div class="card-grid cols-1">
+    <div class="card dark-card">
+      <span class="icon">🧯</span>
+      <h3>Qué cambia con un contrato de error</h3>
+      <ul>
+        <li>Todo fallo vuelve con <strong>categoría + <code>isRetryable</code> + mensaje
+          accionable</strong>. El agente deja de adivinar: lee la
+          categoría y sabe si reintentar sirve, si el argumento tiene que cambiar o si toca
+          escalar.</li>
+        <li>El vacío legítimo vuelve como <strong>éxito</strong> (<code>isError: false</code>,
+          <code>resultCount: 0</code>); el fallo de acceso vuelve como error, diciendo que la
+          consulta <strong>no se ejecutó</strong>. Los dos casos dejan de ser el mismo
+          <code>[]</code>.</li>
+        <li>El <em>traceback</em> se queda en el log interno. Al modelo sube solo lo que necesita para decidir.</li>
+        <li>Entre subagentes: resuelve local, propaga solo lo que no se puede arreglar — y lleva
+          consigo el resultado parcial y lo que se intentó.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    <strong>Segundo caso ejemplar.</strong> La mejor prueba de un contrato de error no es el
+    escenario que mapeaste — es el que olvidaste. Supongamos que una integración se despliega en un
+    entorno donde la credencial nunca se aprovisionó, un caso que no estaba en ninguna parte de la
+    especificación. Si la tool responde que aquella integración no está habilitada en ese entorno,
+    en vez de simplemente romperse, el agente entiende, avisa y para. Nadie tuvo que prever el caso,
+    porque la respuesta se explica sola. Ese es el punto: un contrato de error no cubre la lista de
+    fallos que anticipaste — cubre la <strong>categoría</strong> de fallos que no anticipaste.
+  </p>
+
+  <hr class="divider">
+
+  <!-- ================= ANTES Y DESPUÉS ================= -->
+  <div class="section-label">
+    <div class="icon-box">🔀</div>
+    <div>
+      <h2>Antes y después</h2>
+      <div class="subtitle">El mismo error, dos payloads — y qué cambia en el flujo</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card code-card">
+      <div class="code-block">// ANTES — la tool devuelve un string; el modelo adivina el resto
+{
+  "isError": true,
+  "content": [
+    { "type": "text", "text": "Error al consultar pedidos: HTTP 403" }
+  ]
+}</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    El modelo no tiene cómo saber si reintentar sirve, si el argumento estaba mal o si el problema
+    es de credencial — <code>403</code> es solo un token más, y puede interpretarlo como quiera.
+  </p>
+
+  <div class="card-grid cols-1">
+    <div class="card code-card">
+      <div class="code-block">// DESPUÉS — la tool devuelve lo que el modelo necesita para decidir
+{
+  "isError": true,
+  "content": [
+    { "type": "text",
+      "text": "Sin permiso para consultar pedidos de este cliente." }
+  ],
+  "structuredContent": {
+    "errorCategory": "permission",
+    "isRetryable": false,
+    "message": "El principal actual no tiene acceso a los pedidos del
+                cliente indicado. Reintentar con los mismos argumentos
+                va a fallar igual. Deriva a un principal autorizado."
+  }
+}</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    El <code>content</code> textual sigue existiendo — es lo que el modelo lee primero. El
+    <code>structuredContent</code> es lo que vuelve determinista la decisión. El stack trace y la query se quedan
+    en el log interno y no suben con él (volvemos a esto en la sección de trampas).
+  </p>
+
+  <div class="card-grid cols-1">
+    <div class="card">
+      <span class="icon">🔻</span>
+      <h3>Flujo ciego (antes)</h3>
+      <div class="code-block">   Agente                          Tool
+     |                              |
+     |-- call_tool ---------------->|
+     |                              | X falla
+     |                              | except -> string
+     |&lt;-- "Error: failed" ----------|
+     |
+     v
+  reintenta -> reintenta -> reintenta -> se rinde
+  (sin saber si reintentar sirve)</div>
+    </div>
+
+    <div class="card">
+      <span class="icon">🔼</span>
+      <h3>Flujo con feedback (después)</h3>
+      <div class="code-block">   Agente                          Tool
+     |                              |
+     |-- call_tool ---------------->|
+     |                              | X falla
+     |                              | clasifica
+     |                              | sanitiza
+     |                              | log interno
+     |&lt;-- isError: true ------------|
+     |    errorCategory: permission
+     |    isRetryable: false
+     v
+  no reintenta -> camino alternativo o escala</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    La tool no cambió lo que le pasa: sigue fallando igual, por el mismo motivo. Lo que cambió es
+    lo que <strong>devuelve</strong> — en vez de dejar que la excepción se vuelva un string,
+    <em>clasifica</em> antes de responder. No hace falta ninguna capa nueva entre el agente y la
+    tool para eso: la clasificación es lo último que hace la tool antes del <code>return</code>. De
+    ella trata la siguiente sección.
+  </p>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 1 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🧱</div>
+    <div>
+      <h2>Dos tipos de error, dos destinos</h2>
+      <div class="subtitle">El criterio de corte es: ¿quién puede arreglar esto?</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">🔌</span>
+      <h3>Protocol error</h3>
+      <ul>
+        <li>Problema con la <strong>estructura de la petición</strong>, no con la operación.</li>
+        <li>Tool que no existe, servidor caído, JSON malformado.</li>
+        <li>Vuelve como error de protocolo (JSON-RPC), fuera del resultado.</li>
+        <li>El modelo difícilmente arregla esto solo — quien lo arregla es un dev.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">🧰</span>
+      <h3>Tool execution error</h3>
+      <ul>
+        <li>La tool <strong>se ejecutó</strong> y la operación falló.</li>
+        <li>API externa caída, argumento inválido, regla de negocio que deniega.</li>
+        <li>Vuelve <em>dentro</em> del resultado, con <code>isError: true</code>.</li>
+        <li>Es el material con el que el modelo se autocorrige e intenta de otra forma.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card callout">
+      <span class="icon">💡</span>
+      <h3>Lo normativo del MCP</h3>
+      <p>
+        La especificación del MCP marca la asimetría con dos verbos distintos. Para el error de
+        ejecución, el cliente <strong>SHOULD</strong> pasarle el fallo al modelo, precisamente para
+        que pueda autocorregirse:
+      </p>
+      <p style="margin:12px 0;padding-left:14px;border-left:3px solid var(--purple);color:var(--ink-soft);">
+        <em>"Clients SHOULD provide tool execution errors to language models to enable
+        self-correction."</em>
+      </p>
+      <p>
+        Para el error de protocolo, el cliente solo <strong>MAY</strong> reenviarlo — y la propia
+        especificación avisa de que difícilmente eso termina en una recuperación exitosa. En una
+        frase: el error de ejecución se escribe para que lo lea el modelo; el error de protocolo se
+        escribe para quien está de guardia.
+      </p>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Ejemplos</th>
+        <th>Quién lo arregla</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Protocol error</strong></td>
+        <td>Tool inexistente, argumento obligatorio ausente en el schema, servidor no disponible</td>
+        <td>Dev / operaciones</td>
+      </tr>
+      <tr>
+        <td><strong>Tool execution error</strong></td>
+        <td>Timeout de la API, código postal con formato inválido, pedido ya cancelado, sin permiso</td>
+        <td>El propio modelo, en la siguiente llamada</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 2 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🏷️</div>
+    <div>
+      <h2>La taxonomía de las cuatro categorías</h2>
+      <div class="subtitle">Referencia rápida — la tabla que resuelve casi todos los casos</div>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Categoría</th>
+        <th><code>isRetryable</code></th>
+        <th>Qué hace el agente</th>
+        <th>Ejemplo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>transient</strong></td>
+        <td>✅ <code>true</code></td>
+        <td>Reenvía la misma llamada, con backoff exponencial y jitter</td>
+        <td>Timeout, 503, rate limit</td>
+      </tr>
+      <tr>
+        <td><strong>validation</strong></td>
+        <td>❌ <code>false</code></td>
+        <td>Corrige el argumento y vuelve a llamar — llamada nueva, no reintento</td>
+        <td>Fecha en formato incorrecto, ID fuera de patrón</td>
+      </tr>
+      <tr>
+        <td><strong>business</strong></td>
+        <td>❌ <code>false</code></td>
+        <td>Busca un camino alternativo o escala a un humano</td>
+        <td>Pedido ya cancelado, saldo insuficiente</td>
+      </tr>
+      <tr>
+        <td><strong>permission</strong></td>
+        <td>❌ <code>false</code></td>
+        <td>Intenta con otro principal, o pide autorización</td>
+        <td>Token sin scope, recurso de otro tenant</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card-grid cols-2">
+    <div class="card callout">
+      <span class="icon">⚠️</span>
+      <h3>Aviso de honestidad</h3>
+      <p>
+        <code>errorCategory</code>, <code>isRetryable</code> y <code>message</code>
+        <strong>no están en el envelope del MCP</strong>. El <code>CallToolResult</code> define solo
+        <code>content</code>, <code>structuredContent</code> e <code>isError</code> — esa metadata
+        es <strong>convención de aplicación</strong> y viaja dentro de
+        <code>structuredContent</code>. Saberlo evita la trampa de buscar esos campos en la spec.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🧭</span>
+      <h3>Una quinta categoría, en la práctica</h3>
+      <p>
+        Los sistemas en producción suelen separar aún una quinta:
+        <strong>configuration</strong> (credencial ausente, endpoint incorrecto, feature apagada):
+        también <code>isRetryable: false</code>, pero con una diferencia — ningún intento del agente
+        lo resuelve. El destino correcto es escalar directamente, sin buscar alternativas.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 3 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🚦</div>
+    <div>
+      <h2>Qué significa realmente <code>isRetryable</code></h2>
+      <div class="subtitle">El campo peor interpretado de la estructura</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card dark-card">
+      <span class="icon">❓</span>
+      <h3>Responde una sola pregunta</h3>
+      <p>
+        <em>"¿Reenviar exactamente esta misma petición, sin cambiar nada, tiene alguna posibilidad
+        de funcionar?"</em>
+      </p>
+      <p style="margin-top:14px;">
+        Nada más que eso. No es un veredicto sobre la tarea, sobre la tool ni sobre el agente — es
+        una afirmación sobre <strong>una llamada específica</strong>.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🕳️</span>
+      <h3>Las dos lecturas equivocadas</h3>
+      <ul>
+        <li><strong>Marcar validation como retryable.</strong> Reenviar el mismo argumento inválido
+          falla otra vez, siempre. El agente entra en bucle y quema el presupuesto de
+          intentos.</li>
+        <li><strong>Leer <code>false</code> como "detente".</strong> Un <code>false</code> en
+          <em>validation</em> es justamente la invitación a reformular y volver a llamar. Lo
+          prohibido es repetir <em>idéntico</em>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 4 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🕳️</div>
+    <div>
+      <h2>Cero resultados no es un fallo</h2>
+      <div class="subtitle">La distinción que separa "no existe" de "no pude mirar"</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card code-card">
+      <div class="code-block">// La consulta SÍ se ejecutó y el registro no existe → esto es éxito
+{
+  "isError": false,
+  "structuredContent": {
+    "resultCount": 0,
+    "results": [],
+    "message": "Consulta ejecutada. Ningún pedido encontrado para el
+                cliente indicado entre 2026-01-01 y 2026-06-30."
+  }
+}
+
+// La consulta NO se ejecutó → esto es fallo
+{
+  "isError": true,
+  "structuredContent": {
+    "errorCategory": "transient",
+    "isRetryable": true,
+    "message": "La consulta NO se ejecutó: timeout al conectar con el
+                servicio de pedidos tras 30s. El resultado es desconocido.
+                Reintenta en unos segundos."
+  }
+}</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card callout">
+      <span class="icon">🎯</span>
+      <h3>Por qué esto tumba agentes</h3>
+      <p>
+        Si las dos situaciones vuelven con la misma cara ("ningún resultado"), el agente no puede
+        elegir entre <em>reintentar</em> y <em>concluir</em>. El patrón clásico: reintenta tres
+        veces, escala a un humano — y el registro sencillamente nunca existió. La tool funcionó; lo
+        que faltó fue que la respuesta <strong>dijera que funcionó</strong>.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🔒</span>
+      <h3>Antes de implementar: ¿cuál es la regla de negocio?</h3>
+      <p>
+        Cuando el recurso <strong>existe pero quien llama no puede verlo</strong>, no hay respuesta
+        "técnicamente correcta" — hay una <strong>decisión de política</strong> que tiene que estar
+        escrita antes de implementar la tool. Dos salidas son legítimas; lo que no es legítimo es no
+        haber elegido ninguna y dejar que el comportamiento salga por accidente.
+      </p>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Política</th>
+        <th>Qué devuelve la tool</th>
+        <th>Qué puede hacer el agente</th>
+        <th>Qué se filtra</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Revelar la restricción</strong></td>
+        <td><code>isError: true</code>, <code>errorCategory: "permission"</code>,
+          <code>isRetryable: false</code></td>
+        <td>Pedir autorización, intentar con otro principal, avisar que el registro existe y está
+          restringido</td>
+        <td>Confirma que el recurso existe</td>
+      </tr>
+      <tr>
+        <td><strong>Indistinguible de inexistente</strong></td>
+        <td>Exactamente el mismo objeto del caso "no encontrado": <code>isError: false</code>,
+          <code>resultCount: 0</code>, los mismos campos</td>
+        <td>Concluir que no hay nada que buscar — y nada más</td>
+        <td>Nada</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card-grid cols-1">
+    <div class="card callout">
+      <span class="icon">🧾</span>
+      <h3>Tres consecuencias de haber elegido</h3>
+      <ul>
+        <li>Si la elección es la <strong>segunda</strong>, la disyunción tiene que ser de
+          <strong>formato</strong>, no solo de frase: mismo <em>shape</em>, mismos campos, y a ser
+          posible la misma latencia. Si un camino vuelve con <code>resultCount</code> y el otro no,
+          el propio shape se convierte en el oráculo que filtró la información. (Es lo que hace
+          GitHub al devolver 404 en vez de 403 para un repositorio privado.)</li>
+        <li>En <strong>los dos</strong> casos el motivo real va al log interno. Indistinguible para el modelo no es invisible para la
+          operación.</li>
+        <li>La política elegida tiene que estar <strong>en la descripción de la tool</strong> — si
+          no, el modelo interpreta el vacío a su manera y el comportamiento se vuelve lotería.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 5 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🕸️</div>
+    <div>
+      <h2>Propagación entre subagentes</h2>
+      <div class="subtitle">Recuperación local, propagación selectiva</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">🪜</span>
+      <h3>El protocolo en tres pasos</h3>
+      <ol class="steps">
+        <li><strong>Recuperación local.</strong> El subagente resuelve solo lo que es
+          <em>transient</em> y lo que es <em>validation</em> — backoff en uno, argumento
+          reformulado en el otro.</li>
+        <li><strong>Propagación selectiva.</strong> Solo sube lo que no puede arreglar a su nivel:
+          permission, business, configuration, o transitorio que agotó el techo de intentos.</li>
+        <li><strong>Con contexto.</strong> Al subir, envía el resultado parcial y lo que se
+          intentó: <em>"3 de 5 fuentes respondieron; la fuente X falló con timeout tras 4
+          intentos"</em>.</li>
+      </ol>
+    </div>
+
+    <div class="card callout">
+      <span class="icon">⚖️</span>
+      <h3>Los dos extremos, ambos erróneos</h3>
+      <ul>
+        <li><strong>Tragárselo en silencio.</strong> El subagente devuelve lista vacía como si
+          fuera éxito. El coordinador concluye sobre datos incompletos y nadie se entera.</li>
+        <li><strong>Matar el workflow.</strong> Una fuente falla y el pipeline entero aborta,
+          tirando cuatro resultados buenos. Un fallo parcial es un resultado parcial, no un error
+          total.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 6 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🧨</div>
+    <div>
+      <h2>Trampas</h2>
+      <div class="subtitle">Segunda referencia rápida — lo que hay que tachar</div>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Trampa</th>
+        <th>Por qué</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tratar cero resultados como error</td>
+        <td>Hace que el agente reintente una consulta que ya respondió bien</td>
+      </tr>
+      <tr>
+        <td>Mensaje genérico ("Error al procesar")</td>
+        <td>Sin categoría y sin instrucción, al modelo solo le queda adivinar</td>
+      </tr>
+      <tr>
+        <td>Marcar <em>business</em> como retryable</td>
+        <td>Una regla de negocio no cambia por insistir — bucle garantizado</td>
+      </tr>
+      <tr>
+        <td>Marcar <em>validation</em> como retryable</td>
+        <td>El mismo argumento inválido falla otra vez; lo correcto es reformular</td>
+      </tr>
+      <tr>
+        <td>Leer <code>isRetryable: false</code> como "abandona"</td>
+        <td>Cierra caminos alternativos que todavía resolverían la tarea</td>
+      </tr>
+      <tr>
+        <td>Reintento automático escondido dentro de la tool</td>
+        <td>Le quita al agente la decisión y la visibilidad sobre latencia y coste</td>
+      </tr>
+      <tr>
+        <td>Subagente que devuelve vacío como éxito</td>
+        <td>El coordinador concluye sobre datos que nunca llegaron</td>
+      </tr>
+      <tr>
+        <td>Devolver stack trace al modelo</td>
+        <td>Filtra detalles internos y llena el contexto de ruido inútil para decidir</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 7 ================= -->
+  <div class="section-label">
+    <div class="icon-box">🏭</div>
+    <div>
+      <h2>En la vida real</h2>
+      <div class="subtitle">Qué cambia cuando esto sale del ejemplo y va a producción</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Nada de esto es un invento del mundo de los agentes: el error estructurado es un problema
+    resuelto hace décadas en API design. Los tres linajes de abajo dicen lo mismo en envelopes
+    distintos.
+  </p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Estándar</th>
+        <th>Envelope</th>
+        <th>Identidad para máquina</th>
+        <th>Reintento</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>MCP</strong></td>
+        <td><code>isError</code> + <code>structuredContent</code></td>
+        <td>Convención de la aplicación (<code>errorCategory</code>)</td>
+        <td><code>isRetryable</code>, por convención</td>
+      </tr>
+      <tr>
+        <td><strong>RFC 9457</strong></td>
+        <td><code>application/problem+json</code></td>
+        <td><code>type</code> (URI) + <code>title</code>, <code>status</code>, <code>detail</code></td>
+        <td>Header <code>Retry-After</code></td>
+      </tr>
+      <tr>
+        <td><strong>AIP-193</strong></td>
+        <td><code>google.rpc.Status</code> (code, message, details[])</td>
+        <td><code>ErrorInfo</code> (domain, reason, metadata)</td>
+        <td><code>RetryInfo.retryDelay</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card-grid cols-3">
+    <div class="card">
+      <span class="icon">🧪</span>
+      <h3>Cuidado al emitir <code>structuredContent</code> en un error</h3>
+      <p>
+        Los clientes MCP más estrictos validan la respuesta contra el <code>outputSchema</code>
+        anunciado — que describe el <em>éxito</em>. Enviar <code>structuredContent</code> junto con
+        <code>isError: true</code> rompe esos clientes. Dos salidas: no emitir
+        <code>structuredContent</code> en errores (dejar la metadata en <code>content</code>), o
+        ampliar el schema anunciado a <em>éxito ∪ error</em>.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🧼</span>
+      <h3>Sanitiza antes de devolver</h3>
+      <p>
+        OWASP <strong>LLM05:2025 — Improper Output Handling</strong>: stack trace, query cruda, URL
+        interna, valor de argumento y fragmentos del system prompt no vuelven al modelo. Loguea todo
+        internamente y devuelve <em>código + mensaje seguro</em>.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="icon">🔁</span>
+      <h3>No repropagues el error crudo</h3>
+      <p>
+        AIP-193 es directo: nunca parsees el string del mensaje, y al reenviar el error de una
+        dependencia <strong>ajusta la responsabilidad</strong>. Un <code>INVALID_ARGUMENT</code> que
+        vino de un servicio interno no es culpa de quien te llamó — para tu cliente, eso es
+        <code>INTERNAL</code>.
+      </p>
+    </div>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <span class="icon">⏱️</span>
+      <h3>Mecánica de reintento</h3>
+      <ul>
+        <li>Backoff exponencial <strong>con jitter</strong>: <code>base * 2^n + random(0, jitter)</code>.</li>
+        <li>Base de 1–2s, techo de 5–7 intentos.</li>
+        <li>Respetar <code>Retry-After</code> / <code>RetryInfo</code> cuando el servicio los envíe.</li>
+        <li>Verificar idempotencia antes de reintentar cualquier cosa que escriba.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="icon">📈</span>
+      <h3>Observabilidad</h3>
+      <ul>
+        <li>Convenciones GenAI de OpenTelemetry: <code>gen_ai.operation.name</code>,
+          <code>gen_ai.system</code>, <code>error.type</code>.</li>
+        <li>Atributos propios que valen oro: <code>error.retryable</code>,
+          <code>error.attempt</code>.</li>
+        <li>Qué monitorizar desde el día uno: tasa de reintento por categoría y razón
+          escalado/conclusión.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= CONCLUSIÓN ================= -->
+  <div class="section-label">
+    <div class="icon-box">🏁</div>
+    <div>
+      <h2>Lo que resolvimos</h2>
+      <div class="subtitle">De vuelta a la tool del principio, ahora con contrato</div>
+    </div>
+  </div>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Volviendo a la tool del primer ejemplo: sigue fallando. La API del otro lado sigue limitando
+    peticiones, el token sigue expirando, el registro todavía puede no estar. Lo que cambió no fue
+    la tasa de fallo — fue lo que el fallo <strong>dice</strong>. En lugar de un <code>[]</code> que
+    se hace pasar por respuesta, vuelve una categoría, un <code>isRetryable</code> y una frase
+    escrita para que el modelo actúe.
+  </p>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Las dos tools torcidas de la apertura se encuentran acá. La que subestimaba al agente dejó de
+    decidir en su lugar: clasifica el fallo y le devuelve la decisión a quien tiene el contexto de
+    la tarea entera. La que confiaba de más dejó de tercerizar el diagnóstico: en vez de empujar un
+    <em>traceback</em> y cruzar los dedos, dice qué pasó y qué hacer ahora. Ninguna de las dos pasó
+    a esconder menos ni a mostrar más — las dos pasaron a mostrar <strong>lo correcto</strong>.
+  </p>
+
+  <p style="max-width:900px;margin:0 auto 20px;color:var(--ink-soft);font-size:14.5px;">
+    Y nada de esto pide una capa nueva entre el agente y la tool. La clasificación es lo último que
+    la tool hace antes del <code>return</code>. El trabajo de verdad es decidir una vez, y por
+    escrito, cuatro cosas: en qué categoría cae cada fallo, qué es reintentable, qué pasa con el
+    vacío legítimo y qué nunca sube al modelo. Respondidas esas cuatro en el código y en la
+    descripción de la tool, el agente deja de adivinar.
+  </p>
+
+  <hr class="divider">
+
+  <div class="card-grid cols-1">
+    <div class="card dark-card">
+      <span class="icon">⚡</span>
+      <h3>TL;DR — el error estructurado en una pantalla</h3>
+      <p>
+        <strong>Qué es.</strong> Un error estructurado es la respuesta que la tool devuelve cuando
+        falla, diseñada como <em>dato para que el modelo actúe</em> — categoría,
+        <code>isRetryable</code> y un mensaje escrito como instrucción — y no como texto suelto de
+        excepción. El detalle crudo se queda en el log interno; al modelo sube solo lo que necesita
+        para decidir el próximo paso.
+      </p>
+      <p>
+        <strong>Por qué lo necesitas.</strong> Sin ese contrato, el mismo string genérico produce
+        los cuatro síntomas del principio del post: respuesta equivocada que parece correcta, bucle
+        infinito de reintentos, tokens quemados y fuga de detalle interno. Con él, el agente lee la
+        categoría y sabe si reintentar sirve, si el argumento tiene que cambiar o si toca escalar. Y
+        la ganancia no es cubrir la lista de fallos que anticipaste — es cubrir la
+        <strong>categoría</strong> de fallos que no anticipaste.
+      </p>
+      <ul>
+        <li>Existen <strong>dos tipos de error</strong>: lo que el modelo puede arreglar vuelve
+          dentro del <em>resultado</em> de la tool; lo que solo arregla un dev vuelve como error de
+          protocolo.</li>
+        <li>Cuatro categorías: <strong>transient</strong>, <strong>validation</strong>,
+          <strong>business</strong>, <strong>permission</strong>.</li>
+        <li><strong>Solo transient es retryable.</strong> Las otras tres son
+          <code>isRetryable: false</code>.</li>
+        <li><code>isRetryable: false</code> significa "no <em>esta</em> llamada otra vez" — no
+          significa "abandona la tarea".</li>
+        <li>Una consulta que <strong>se ejecutó y encontró cero</strong> no es un error. Es éxito
+          con <code>resultCount: 0</code>.</li>
+        <li>El mensaje de error es una <strong>instrucción</strong> para el modelo, no un informe
+          para el log.</li>
+        <li>El subagente resuelve lo transitorio solo; únicamente sube lo que no puede arreglar
+          localmente — y sube con el resultado parcial.</li>
+        <li>Nunca devolver stack trace, query cruda, URL interna ni fragmentos del system prompt al
+          modelo.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ================= SECCIÓN 8 — REFERENCIAS ================= -->
+  <div class="section-label">
+    <div class="icon-box">📚</div>
+    <div>
+      <h2>Referencias</h2>
+      <div class="subtitle">Las fuentes primarias detrás de cada afirmación de arriba</div>
+    </div>
+  </div>
+
+  <div class="card-grid cols-1">
+    <div class="card">
+      <p><strong>Normativas</strong></p>
+      <ul>
+        <li><a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools" target="_blank" rel="noopener noreferrer">MCP — Server / Tools (rev. 2026-07-28)</a>
+          — los dos tipos de error, <code>CallToolResult</code>, <code>isError</code>.</li>
+        <li><a href="https://www.rfc-editor.org/rfc/rfc9457.html" target="_blank" rel="noopener noreferrer">RFC 9457 — Problem Details for HTTP APIs</a>
+          — el envelope <code>application/problem+json</code> (deja obsoleta la RFC 7807).</li>
+        <li><a href="https://google.aip.dev/193" target="_blank" rel="noopener noreferrer">Google AIP-193 — Errors</a>
+          — <code>Status</code>, <code>ErrorInfo</code>, repropagación y "never parse message strings".</li>
+        <li><a href="https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto" target="_blank" rel="noopener noreferrer"><code>google/rpc/error_details.proto</code></a>
+          — las definiciones de <code>ErrorInfo</code> y <code>RetryInfo</code>.</li>
+      </ul>
+
+      <p style="margin-top:16px;"><strong>Doctrina de diseño de tools</strong></p>
+      <ul>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener noreferrer">Anthropic — Building Effective Agents</a>
+          — el apéndice sobre ACI y por qué la tool merece el mismo cuidado que el prompt.</li>
+        <li><a href="https://www.anthropic.com/engineering/writing-tools-for-agents" target="_blank" rel="noopener noreferrer">Anthropic — Writing tools for agents</a>
+          — mensajes de error como instrucción y el formato de la respuesta.</li>
+        <li><a href="https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview" target="_blank" rel="noopener noreferrer">Anthropic Docs — Tool use overview</a>
+          — la mecánica de <code>is_error</code> en el loop de tool use.</li>
+      </ul>
+
+      <p style="margin-top:16px;"><strong>Operación</strong></p>
+      <ul>
+        <li><a href="https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/" target="_blank" rel="noopener noreferrer">OWASP — LLM05:2025 Improper Output Handling</a>
+          — lo que jamás debe volver al modelo.</li>
+        <li><a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/" target="_blank" rel="noopener noreferrer">OpenTelemetry — Semantic conventions for GenAI</a>
+          — atributos estándar para instrumentar llamadas a tools.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Post de estudio generado con la skill <strong>claude-study-post</strong>. ¡Si ves algún error, avísame!</p>
+    <p><a href="../index.html">← Volver a todos los posts</a></p>
+  </div>
+
+</body>
+</html>
